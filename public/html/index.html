@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Game</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      #game_table { border-spacing: 0px; position: absolute; }
+      .wall { width: 20px; height: 20px; background-color: gray; }
+      .hall { width: 20px; height: 20px; background-color: white; }
+      .board_entity {
+        text-align: center;
+        font-weight: bold;
+        line-height: 18px;
+        font-size: 10px;
+        width: 18px;
+        height: 18px;
+        position: absolute;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <table id="maze_table"><table/>
+    </div>
+    <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="public/js/underscore-min.js" type="text/javascript"></script>
+    <script src="public/js/client_game.js" type="text/javascript"></script>
+    <script src="public/js/client_player.js" type="text/javascript"></script>
+  </body>
+</html>
