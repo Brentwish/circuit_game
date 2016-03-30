@@ -11,6 +11,7 @@ for (var i = 0; i < board_height; i++) {
   for (var j = 0; j < board_width; j++) {
     var td = $('<td>')
       .attr('name', String(i) + "," + String(j))
+      .addClass("tile")
     tr.append(td);
   }
   $(jboard).append(tr);
