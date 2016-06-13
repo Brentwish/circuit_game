@@ -1,58 +1,52 @@
+var canvas = document.getElementById("myCanvas");
+ctx = canvas.getContext("2d");
+entities = [];
 
-function tile(x, y, val) {
-  this.x = x;
-  this.y = y;
-  this.val = val;
+make_dots();
+setInterval(game, 16);
+
+function game() {
+  update();
+  render();
 }
 
-tile.prototype.is_hall = function() {
-  return this.val == 1;
-}
-
-tile.prototype.is_wall = function() {
-  return this.val == 0;
-}
-
-tile.prototype.same_coords = function(coords) {
-  return this.x == coords.x && this.y == coords.y;
-}
-
-tile.prototype.toString = function() {
-  return String(this.x) + "," + String(this.y);
-}
-
-board = {
-  width : 5,
-  height : 3,
-  tiles : new Array(),
-  player_coord : { x: 0, y: 0 },
-  get_tile_at : function(x, y) {
-    return board.tiles[y][x]
-  },
-  generate : function() {
-    var $table = $('<table />').appendTo('body');
-    $table.attr('id', 'board');
-    for (i = 0; i < board.height; i++) {
-      board.tiles[i] = new Array();
-      for (j = 0; j < board.width; j++) {
-        board.tiles[i][j] = new tile(j, i, 0);
-      }
-    }
-    board.draw()
-  },
-  draw : function() {
-    $('#board').empty()
-    for (var i = 0; i < board.height; i++) {
-      var tr = $('<tr>')
-      for (var j = 0; j < board.width; j++) {
-        var td = $('<td>')
-          .attr('name', String(i) + "," + String(j))
-          .addClass("tile")
-        tr.append(td)
-      }
-      $('#board').append(tr)
-    }
+function update() {
+  for (var i = 0; i < entities.length; i++) {
+    entities[i].pos.x += 1;
+    entities[i].pos.y += 1;
   }
 }
 
-board.generate()
+function render() {
+  //Clear Board
+  ctx.clearRect(1, 0, canvas.width, canvas.height);
+  //Draw Background
+  ctx.fillStyle = "Black";
+  ctx.rect( 0, 0, 300, 300 );
+  ctx.fill();
+  //Draw entities
+  for (var i = 0; i < entities.length; i++) {
+    draw(entities[i]);
+  }
+}
+
+function draw(entity) {
+  ctx.putImageData(entity.image, entity.pos.x, entity.pos.y)
+}
+
+function make_dots() {
+  r = 3;//radius
+  for (i = 0; i <= 10; i++) {
+    var x = Math.floor(Math.random() * 299)
+    var y = Math.floor(Math.random() * 299)
+
+    ctx.fillStyle = "white";
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.fill();
+    dot = ctx.getImageData(x, y, 30, 30);
+    entities.push( { image: dot, pos: { x : x, y : y, r : r }} )
+  }
+}
