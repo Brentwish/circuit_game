@@ -1,5 +1,7 @@
-var canvas = document.getElementById("myCanvas");
-ctx = canvas.getContext("2d");
+var background = document.getElementById("background");
+var sprites = document.getElementById("sprites");
+background_ctx = background.getContext("2d");
+sprites_ctx = sprites.getContext("2d");
 entities = [];
 
 make_dots();
@@ -19,11 +21,13 @@ function update() {
 
 function render() {
   //Clear Board
-  ctx.clearRect(1, 0, canvas.width, canvas.height);
+  sprites_ctx.clearRect(0, 0, sprites.width, sprites.height);
+
   //Draw Background
-  ctx.fillStyle = "Black";
-  ctx.rect( 0, 0, 300, 300 );
-  ctx.fill();
+  background_ctx.fillStyle = "Black";
+  background_ctx.rect( 0, 0, 300, 300 );
+  background_ctx.fill();
+
   //Draw entities
   for (var i = 0; i < entities.length; i++) {
     draw(entities[i]);
@@ -31,7 +35,7 @@ function render() {
 }
 
 function draw(entity) {
-  ctx.putImageData(entity.image, entity.pos.x, entity.pos.y)
+  sprites_ctx.putImageData(entity.image, entity.pos.x, entity.pos.y)
 }
 
 function make_dots() {
@@ -40,13 +44,13 @@ function make_dots() {
     var x = Math.floor(Math.random() * 299)
     var y = Math.floor(Math.random() * 299)
 
-    ctx.fillStyle = "white";
+    sprites_ctx.fillStyle = "white";
 
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2, true);
-    ctx.closePath();
-    ctx.fill();
-    dot = ctx.getImageData(x, y, 30, 30);
+    sprites_ctx.beginPath();
+    sprites_ctx.arc(x, y, r, 0, Math.PI * 2, true);
+    sprites_ctx.closePath();
+    sprites_ctx.fill();
+    dot = sprites_ctx.getImageData(x - r, y - r, 30, 30);
     entities.push( { image: dot, pos: { x : x, y : y, r : r }} )
   }
 }
