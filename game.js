@@ -5,6 +5,9 @@ sprites_ctx = sprites.getContext("2d");
 entities = [];
 
 make_dots();
+background_ctx.fillStyle = "Black";
+background_ctx.rect( 0, 0, 300, 300 );
+background_ctx.fill();
 setInterval(game, 16);
 
 function game() {
@@ -32,9 +35,6 @@ function render() {
   sprites_ctx.clearRect(0, 0, sprites.width, sprites.height);
 
   //Draw Background
-  background_ctx.fillStyle = "Black";
-  background_ctx.rect( 0, 0, 300, 300 );
-  background_ctx.fill();
 
   //Draw entities
   for (var i = 0; i < entities.length; i++) {
