@@ -14,8 +14,16 @@ function game() {
 
 function update() {
   for (var i = 0; i < entities.length; i++) {
-    entities[i].pos.x += 1;
-    entities[i].pos.y += 1;
+    entity = entities[i]
+    entity.pos.x += entity.speed * entity.direction.x;
+    entity.pos.y += entity.speed * entity.direction.y;
+
+    if (( entity.pos.x <= 1 ) || ( entity.pos.x >= sprites.width - 1 )) {
+      entity.direction.x *= -1
+    }
+    if (( entity.pos.y <= 1 ) || ( entity.pos.y >= sprites.height - 1 )) {
+      entity.direction.y *= -1
+    }
   }
 }
 
@@ -39,7 +47,7 @@ function draw(entity) {
 }
 
 function make_dots() {
-  r = 3;//radius
+  r = 4;//radius
   for (i = 0; i <= 10; i++) {
     var x = Math.floor(Math.random() * 299)
     var y = Math.floor(Math.random() * 299)
@@ -50,7 +58,11 @@ function make_dots() {
     sprites_ctx.arc(x, y, r, 0, Math.PI * 2, true);
     sprites_ctx.closePath();
     sprites_ctx.fill();
-    dot = sprites_ctx.getImageData(x - r, y - r, 30, 30);
-    entities.push( { image: dot, pos: { x : x, y : y, r : r }} )
+    dot = sprites_ctx.getImageData(x - r, y - r, 2*r, 2*r);
+    entities.push( { image: dot,
+                     pos: { x : x, y : y, r : r },
+                     speed: 1,
+                     direction: { x: 1, y: 1 }
+                   } )
   }
 }
