@@ -2,13 +2,13 @@ var background = document.getElementById("background");
 var sprites = document.getElementById("sprites");
 background_ctx = background.getContext("2d");
 sprites_ctx = sprites.getContext("2d");
+num_bots = 10;
 entities = [];
 player_data = { type: 'player',
                 pos: { x: 10, y: 15 },
                 image: player_image_gen('square'),
                 speed: 8
               };
-
 board_data = { type: 'background',
                canvas: background,
                ctx: background_ctx,
@@ -16,8 +16,15 @@ board_data = { type: 'background',
                width: background.width,
                height: background.height
              };
-
-dots_image_gen();
+npc_data = { type: 'npc',
+             image: bot_image_gen(),
+             pos: { x: 0, y: 0 },
+             speed: 1,
+             ai_type: 'random'
+           }
+for (i = 0; i <= num_bots; i++) {
+  entities.push(make_bot(npc_data));
+}
 main_player = new Player( player_data );
 board = new Board( board_data );
 entities.push(main_player);
@@ -100,6 +107,7 @@ function Npc(data) {
   this.type = data.type
   this.image = data.image
   this.pos = data.pos
+  this.direction = data.direction
   this.speed = data.speed
   this.ai_type = data.ai_type
 }
@@ -159,12 +167,12 @@ function player_image_gen(type) {
   if (type == 'square') {
     sprites_ctx.beginPath();
     sprites_ctx.fillStyle = "Gray";
-    sprites_ctx.rect(0, 0, 30, 30);
+    sprites_ctx.rect(0, 0, 27, 27);
     sprites_ctx.fill();
 
     sprites_ctx.beginPath();
     sprites_ctx.fillStyle = "Orange"
-    sprites_ctx.rect(12, 3, 3, 24);
+    sprites_ctx.rect(12, 3, 3, 21);
     sprites_ctx.fill();
 
     sprites_ctx.beginPath();
@@ -179,7 +187,7 @@ function player_image_gen(type) {
     sprites_ctx.fill();
     sprites_ctx.translate(-15,0);
 
-    return sprites_ctx.getImageData(0, 0, 30, 30);
+    return sprites_ctx.getImageData(0, 0, 27, 27);
   }
 }
 
@@ -212,24 +220,24 @@ function board_image_gen(width, height, ctx) {
   return ctx.getImageData(0, 0, width, height);
 }
 
-function dots_image_gen() {
-  r = 4;//radius
-  for (i = 0; i <= 10; i++) {
-    var x = Math.floor(Math.random() * 299)
-    var y = Math.floor(Math.random() * 299)
+function bot_image_gen() {
+  r = 4
+  sprites_ctx.fillStyle = "Red";
 
-    sprites_ctx.fillStyle = "Red";
+  sprites_ctx.beginPath();
+  sprites_ctx.arc(r, r, r, 0, Math.PI * 2, true);
+  sprites_ctx.closePath();
+  sprites_ctx.fill();
+  return sprites_ctx.getImageData(0, 0, 2*r, 2*r);
+}
 
-    sprites_ctx.beginPath();
-    sprites_ctx.arc(x, y, r, 0, Math.PI * 2, true);
-    sprites_ctx.closePath();
-    sprites_ctx.fill();
-    dot = sprites_ctx.getImageData(x - r, y - r, 2*r, 2*r);
-    entities.push( { type: 'npc',
-                     image: dot,
-                     pos: { x : x, y : y },
-                     speed: 1,
-                     direction: { x: 1, y: 1 }
-                   } );
-  }
+function make_bot(data) {
+  var x = Math.floor(Math.random() * 299)
+  var y = Math.floor(Math.random() * 299)
+  var S = Math.sqrt(( x * x ) + ( y * y ))
+  data.pos = { x: x, y: y };
+  data.direction = { x: (data.speed/S) * x, y: (data.speed/S) * y };
+
+  bot = new Npc(data)
+  return bot;
 }
