@@ -3,17 +3,23 @@ var sprites = document.getElementById("sprites");
 background_ctx = background.getContext("2d");
 sprites_ctx = sprites.getContext("2d");
 entities = [];
-background_ctx.fillStyle = "Black";
-background_ctx.rect( 0, 0, 300, 300 );
-background_ctx.fill();
 player_data = { type: 'player',
                 pos: { x: 10, y: 15 },
                 image: player_image_gen('square'),
                 speed: 8
               };
 
-make_dots();
+board_data = { type: 'background',
+               canvas: background,
+               ctx: background_ctx,
+               image: board_image_gen(background.width, background.height, background_ctx),
+               width: background.width,
+               height: background.height
+             };
+
+dots_image_gen();
 main_player = new Player( player_data );
+board = new Board( board_data );
 entities.push(main_player);
 setInterval(game, 16);
 window.addEventListener('keydown', on_key_press, true);
@@ -83,34 +89,40 @@ function on_key_press(evt) {
     }
 }
 
-function make_dots() {
-  r = 4;//radius
-  for (i = 0; i <= 10; i++) {
-    var x = Math.floor(Math.random() * 299)
-    var y = Math.floor(Math.random() * 299)
-
-    sprites_ctx.fillStyle = "white";
-
-    sprites_ctx.beginPath();
-    sprites_ctx.arc(x, y, r, 0, Math.PI * 2, true);
-    sprites_ctx.closePath();
-    sprites_ctx.fill();
-    dot = sprites_ctx.getImageData(x - r, y - r, 2*r, 2*r);
-    entities.push( { type: 'npc',
-                     image: dot,
-                     pos: { x : x, y : y },
-                     speed: 1,
-                     direction: { x: 1, y: 1 }
-                   } );
-  }
-}
-
 function Player(data) {
   this.type = data.type
   this.image = data.image
   this.pos = data.pos
   this.speed = data.speed
 }
+
+function Npc(data) {
+  this.type = data.type
+  this.image = data.image
+  this.pos = data.pos
+  this.speed = data.speed
+  this.ai_type = data.ai_type
+}
+
+function Board(data) {
+  this.type = data.type
+  this.canvas = data.canvas
+  this.ctx = data.ctx
+  this.image = data.image
+  this.width = data.width
+  this.height = data.height
+}
+
+Board.prototype.render = function() {
+  this.ctx.putImageData(this.image, 0, 0)
+}
+
+//Npc.prototype.move = function() {
+//  if (this.ai_type == 'random') {
+//    this.
+//  }
+//}
+
 
 Player.prototype.move = function(dir) {
   dir.x *= this.speed;
@@ -145,9 +157,79 @@ Player.prototype.move = function(dir) {
 
 function player_image_gen(type) {
   if (type == 'square') {
+    sprites_ctx.beginPath();
     sprites_ctx.fillStyle = "Gray";
     sprites_ctx.rect(0, 0, 30, 30);
     sprites_ctx.fill();
+
+    sprites_ctx.beginPath();
+    sprites_ctx.fillStyle = "Orange"
+    sprites_ctx.rect(12, 3, 3, 24);
+    sprites_ctx.fill();
+
+    sprites_ctx.beginPath();
+    sprites_ctx.fillStyle = "Orange"
+    sprites_ctx.rect(3, 12, 6, 3);
+    sprites_ctx.fill();
+
+    sprites_ctx.translate(15,0);
+    sprites_ctx.beginPath();
+    sprites_ctx.fillStyle = "Orange"
+    sprites_ctx.rect(3, 12, 6, 3);
+    sprites_ctx.fill();
+    sprites_ctx.translate(-15,0);
+
     return sprites_ctx.getImageData(0, 0, 30, 30);
+  }
+}
+
+function board_image_gen(width, height, ctx) {
+  ctx.beginPath();
+  ctx.fillStyle = "White";
+  ctx.rect( 0, 0, width, height);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "Black";
+  ctx.rect( 0, 0, width, 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "Black";
+  ctx.rect( 0, height - 2, width, 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "Black";
+  ctx.rect( 0, 0, 2, height);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.fillStyle = "Black";
+  ctx.rect( width - 2, 0, 2, height);
+  ctx.fill();
+
+  return ctx.getImageData(0, 0, width, height);
+}
+
+function dots_image_gen() {
+  r = 4;//radius
+  for (i = 0; i <= 10; i++) {
+    var x = Math.floor(Math.random() * 299)
+    var y = Math.floor(Math.random() * 299)
+
+    sprites_ctx.fillStyle = "Red";
+
+    sprites_ctx.beginPath();
+    sprites_ctx.arc(x, y, r, 0, Math.PI * 2, true);
+    sprites_ctx.closePath();
+    sprites_ctx.fill();
+    dot = sprites_ctx.getImageData(x - r, y - r, 2*r, 2*r);
+    entities.push( { type: 'npc',
+                     image: dot,
+                     pos: { x : x, y : y },
+                     speed: 1,
+                     direction: { x: 1, y: 1 }
+                   } );
   }
 }
