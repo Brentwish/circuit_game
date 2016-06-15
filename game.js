@@ -8,7 +8,8 @@ background_ctx.rect( 0, 0, 300, 300 );
 background_ctx.fill();
 player_data = { type: 'player',
                 pos: { x: 10, y: 15 },
-                image: player_image_gen('square')
+                image: player_image_gen('square'),
+                speed: 8
               };
 
 make_dots();
@@ -59,58 +60,27 @@ function draw(entity) {
 
 function on_key_press(evt) {
 
-  // Flag to put variables back if we hit an edge of the board.
-  var flag = 0;
-
-  // Get where the ship was before key process.
-  old_player_pos = main_player.pos
-
   switch (evt.keyCode) {
+    // Left arrow.
+    case 37:
+      main_player.move({ x: -1, y: 0 })
+      break;
 
-  // Left arrow.
-  case 37:
-    main_player.pos.x += -1;
-    // If at edge, reset ship position and set flag.
-    if (main_player.pos.x < 0) {
-      main_player.pos.x = 0;
-      flag = 1;
+    // Right arrow.
+    case 39:
+      main_player.move({ x: 1, y: 0 })
+      break;
+
+    // Down arrow
+    case 40:
+      main_player.move({ x: 0, y: 1 })
+      break;
+
+    // Up arrow
+    case 38:
+      main_player.move({ x: 0, y: -1 })
+      break;
     }
-    break;
-
-  // Right arrow.
-  case 39:
-    main_player.pos.x += 1;
-    // If at edge, reset ship position and set flag.
-    if (main_player.pos.x > sprites.width) {
-      main_player.pos.x = sprites.width;
-      flag = 1;
-    }
-    break;
-
-  // Down arrow
-  case 40:
-    main_player.pos.y += 1;
-    // If at edge, reset ship position and set flag.
-    if (main_player.pos.y > sprites.height) {
-      main_player.pos.y = sprites.height;
-      flag = 1;
-    }
-    break;
-
-  // Up arrow
-  case 38:
-    main_player.pos.y += -1;
-    // If at edge, reset ship position and set flag.
-    if (main_player.pos.y < 0) {
-      main_player.pos.y = 0;
-      flag = 1;
-    }
-    break;
-
-  }
-  if (flag) {
-    main_player.pos = old_player_pos;
-  }
 }
 
 function make_dots() {
@@ -137,32 +107,35 @@ function make_dots() {
 
 function Player(data) {
   this.type = data.type
-  this.pos = data.pos
   this.image = data.image
+  this.pos = data.pos
+  this.speed = data.speed
 }
 
 Player.prototype.move = function(dir) {
-  // Motion is in the x direction if dir.x != Null
+  dir.x *= this.speed;
+  dir.y *= this.speed;
+
   if (dir.x) {
     // Motion is in the positive direction
-    if (dir.x == 1) {
-      if (this.pos.x + dir.x <= board.width) {
+    if (dir.x >= 1) {
+      if (this.pos.x + dir.x <= sprites.width) {
         this.pos.x += dir.x
       }
     // Motion is in the negative direction
-    } else if (dir.x == -1) {
+    } else if (dir.x <= -1) {
       if (this.pos.x + dir.x >= 0) {
         this.pos.x += dir.x
       }
     }
   } else if (dir.y) {
     // Motion is in the positive direction
-    if (dir.y == 1) {
-      if (this.pos.y + dir.y <= board.height) {
+    if (dir.y >= 1) {
+      if (this.pos.y + dir.y <= sprites.height) {
         this.pos.y += dir.y
       }
     // Motion is in the negative direction
-    } else if (dir.y == -1) {
+    } else if (dir.y <= -1) {
       if (this.pos.y + dir.y >= 0) {
         this.pos.y += dir.y
       }
