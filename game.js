@@ -1,35 +1,60 @@
 var background = document.getElementById("background");
+var map = document.getElementById("map");
 var sprites = document.getElementById("sprites");
-background_ctx = background.getContext("2d");
-sprites_ctx = sprites.getContext("2d");
-num_bots = 10;
-entities = [];
-player_data = { type: 'player',
-                pos: { x: 10, y: 15 },
-                image: player_image_gen('square'),
-                speed: 8
-              };
-board_data = { type: 'background',
-               canvas: background,
-               ctx: background_ctx,
-               image: board_image_gen(background.width, background.height, background_ctx),
-               width: background.width,
-               height: background.height
-             };
-npc_data = { type: 'npc',
-             image: bot_image_gen(),
-             pos: { x: 0, y: 0 },
-             speed: 1,
-             ai_type: 'random'
-           }
+var background_ctx = background.getContext("2d");
+var sprites_ctx = sprites.getContext("2d");
+var map_ctx = map.getContext("2d");
+var num_bots = 10;
+var entities = [];
+var keys = [];
+var BOARD_WIDTH = 300;
+var BOARD_HEIGHT = 300;
+var PLAYER_WIDTH = 30;
+var PLAYER_HEIGHT = 30;
+
+var board_data =  { type: 'background',
+                    canvas: background,
+                    ctx: background_ctx,
+                    width: BOARD_WIDTH,
+                    height: BOARD_HEIGHT,
+                    boards:  {}
+                  };
+var map_data =    { type: 'map',
+                    canvas: map,
+                    ctx: map_ctx,
+                    width: BOARD_WIDTH,
+                    height: BOARD_HEIGHT,
+                    boards:  {}
+                  };
+var board = new Board( board_data );
+var map = new Board( map_data );
+board.add_board(map);
+
+var player_data = { type: 'player',
+                    pos: { x: 10, y: 15 },
+                    width: PLAYER_WIDTH,
+                    height: PLAYER_HEIGHT,
+                    image: player_image_gen('square', PLAYER_WIDTH, PLAYER_HEIGHT),
+                    speed: 1,
+                    board: board
+                  };
+var main_player = new Player( player_data );
+
+var npc_data =    { type: 'npc',
+                    image: bot_image_gen(),
+                    pos: { x: 0, y: 0 },
+                    speed: 1,
+                    ai_type: 'random',
+                    map: board
+                  };
 for (i = 0; i <= num_bots; i++) {
   entities.push(make_bot(npc_data));
 }
-main_player = new Player( player_data );
-board = new Board( board_data );
 entities.push(main_player);
+
 setInterval(game, 16);
-window.addEventListener('keydown', on_key_press, true);
+window.addEventListener('keydown', on_key_down, true);
+window.addEventListener('keyup', on_key_up, true);
 
 function game() {
   update();
@@ -39,20 +64,10 @@ function game() {
 function update() {
   for (var i = 0; i < entities.length; i++) {
     entity = entities[i]
-
     if (entity.type == 'npc') {
-      entity.pos.x += entity.speed * entity.direction.x;
-      entity.pos.y += entity.speed * entity.direction.y;
-
-      if (( entity.pos.x <= 1 ) || ( entity.pos.x >= sprites.width - 1 )) {
-        entity.direction.x *= -1
-      }
-      if (( entity.pos.y <= 1 ) || ( entity.pos.y >= sprites.height - 1 )) {
-        entity.direction.y *= -1
-      }
-
+      entity.move();
     } else if (entity.type == 'player') {
-      //  After I add Action Queue, handle it here
+      entity.move();
     }
   }
 }
@@ -60,48 +75,187 @@ function update() {
 function render() {
   //Clear Board
   sprites_ctx.clearRect(0, 0, sprites.width, sprites.height);
-
   //Draw entities
   for (var i = 0; i < entities.length; i++) {
-    draw(entities[i]);
+    sprites_ctx.putImageData(entities[i].image, entities[i].pos.x, entities[i].pos.y)
   }
 }
 
-function draw(entity) {
-  sprites_ctx.putImageData(entity.image, entity.pos.x, entity.pos.y)
+function on_key_down(evt) {
+  keys[evt.keyCode] = true
 }
 
-function on_key_press(evt) {
-
-  switch (evt.keyCode) {
-    // Left arrow.
-    case 37:
-      main_player.move({ x: -1, y: 0 })
-      break;
-
-    // Right arrow.
-    case 39:
-      main_player.move({ x: 1, y: 0 })
-      break;
-
-    // Down arrow
-    case 40:
-      main_player.move({ x: 0, y: 1 })
-      break;
-
-    // Up arrow
-    case 38:
-      main_player.move({ x: 0, y: -1 })
-      break;
-    }
+function on_key_up(evt) {
+  keys[evt.keyCode] = false;
 }
+
+function make_bot(data) {
+  var x = Math.floor(Math.random() * 299)
+  var y = Math.floor(Math.random() * 299)
+  var S = Math.sqrt(( x * x ) + ( y * y ))
+  data.pos = { x: x, y: y };
+  data.direction = { x: (data.speed/S) * x, y: (data.speed/S) * y };
+  bot = new Npc(data)
+  return bot;
+}
+
+/*
+  Player Class
+*/
 
 function Player(data) {
   this.type = data.type
   this.image = data.image
+  this.width = data.width
+  this.height = data.height
   this.pos = data.pos
   this.speed = data.speed
+  this.board = data.board
 }
+
+Player.prototype.move = function() {
+  if (keys[37]) {
+    this.move_left();
+  }
+  if (keys[38]) {
+    this.move_up();
+  }
+  if (keys[39]) {
+    this.move_right();
+  }
+  if (keys[40]) {
+    this.move_down();
+  }
+}
+
+Player.prototype.move_left = function() {
+  if (this.in_bounds('l')) {
+    this.pos.x -= this.speed;
+  }
+}
+Player.prototype.move_up = function() {
+  if (this.in_bounds('u')) {
+    this.pos.y -= this.speed;
+  }
+}
+Player.prototype.move_right = function() {
+  if (this.in_bounds('r')) {
+    this.pos.x += this.speed;
+  }
+}
+Player.prototype.move_down = function() {
+  if (this.in_bounds('d')) {
+    this.pos.y += this.speed;
+  }
+}
+
+Player.prototype.in_bounds = function(dir) {
+  var is_in_bounds = true;
+  var x = this.pos.x;
+  var y = this.pos.y;
+  var width = this.width / 2;
+  var height = this.height / 2;
+
+    if (dir == 'l') {
+      x -= 1;
+    }
+    if (dir == 'u') {
+      y -= 1;
+    }
+    if (dir == 'r') {
+      x += 1;
+    }
+    if (dir == 'd') {
+      y += 1;
+    }
+
+    if ( this.board.map.pixel_at(x, y).is_wall() ) {
+      is_in_bounds = false;
+    }
+  return is_in_bounds;
+}
+
+/*
+  End Player Class
+*/
+
+/*
+  Board Class
+*/
+
+function Board(data) {
+  this.type = data.type
+  this.canvas = data.canvas
+  this.ctx = data.ctx
+  this.width = data.width
+  this.height = data.height
+  this.boards = data.boards
+
+  if (this.type == 'background') {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "White";
+    this.ctx.rect( 0, 0, this.width, this.height);
+    this.ctx.fill();
+
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "Black";
+    this.ctx.rect( 0, 0, this.width, 2);
+    this.ctx.fill();
+
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "Black";
+    this.ctx.rect( 0, this.height - 2, this.width, 2);
+    this.ctx.fill();
+
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "Black";
+    this.ctx.rect( 0, 0, 2, this.height);
+    this.ctx.fill();
+
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "Black";
+    this.ctx.rect( this.width - 2, 0, 2, this.height);
+    this.ctx.fill();
+  } else if (this.type == 'map') {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "rgba(245,0,0,0)";
+    this.ctx.rect( 0, 0, this.width, this.height);
+    this.ctx.fill();
+  }
+
+  this.image = this.ctx.getImageData(0, 0, this.width, this.height);
+
+  this.add_board = function(board) {
+    this.boards[board.type] = board;
+  }
+}
+
+
+Board.prototype.render = function() {
+  this.ctx.putImageData(this.image, 0, 0)
+}
+
+Board.prototype.pixel_at = function(x, y) {
+  data = this.ctx.getImageData(x, y, 1, 1).data
+  return { r: data[0],
+           g: data[1],
+           b: data[2],
+           a: data[3],
+           is_wall: function() {
+             return ( this.r == 1 ? true : false )
+           }
+         }
+}
+
+/*
+  End Board Class
+*/
+
+/*
+  NPC Class
+*/
 
 function Npc(data) {
   this.type = data.type
@@ -112,112 +266,72 @@ function Npc(data) {
   this.ai_type = data.ai_type
 }
 
-function Board(data) {
-  this.type = data.type
-  this.canvas = data.canvas
-  this.ctx = data.ctx
-  this.image = data.image
-  this.width = data.width
-  this.height = data.height
-}
+Npc.prototype.move = function() {
+  this.pos.x += this.speed * this.direction.x;
+  this.pos.y += this.speed * this.direction.y;
 
-Board.prototype.render = function() {
-  this.ctx.putImageData(this.image, 0, 0)
-}
-
-//Npc.prototype.move = function() {
-//  if (this.ai_type == 'random') {
-//    this.
-//  }
-//}
-
-
-Player.prototype.move = function(dir) {
-  dir.x *= this.speed;
-  dir.y *= this.speed;
-
-  if (dir.x) {
-    // Motion is in the positive direction
-    if (dir.x >= 1) {
-      if (this.pos.x + dir.x <= sprites.width) {
-        this.pos.x += dir.x
-      }
-    // Motion is in the negative direction
-    } else if (dir.x <= -1) {
-      if (this.pos.x + dir.x >= 0) {
-        this.pos.x += dir.x
-      }
-    }
-  } else if (dir.y) {
-    // Motion is in the positive direction
-    if (dir.y >= 1) {
-      if (this.pos.y + dir.y <= sprites.height) {
-        this.pos.y += dir.y
-      }
-    // Motion is in the negative direction
-    } else if (dir.y <= -1) {
-      if (this.pos.y + dir.y >= 0) {
-        this.pos.y += dir.y
-      }
-    }
+  if (( this.pos.x <= 1 ) || ( this.pos.x >= sprites.width - 1 )) {
+    this.direction.x *= -1
+  }
+  if (( this.pos.y <= 1 ) || ( this.pos.y >= sprites.height - 1 )) {
+    this.direction.y *= -1
   }
 }
 
-function player_image_gen(type) {
+/*
+  End NPC Class
+*/
+
+    // (4.22208334636).fixed(n) will return fixed point value to n places, default n = 3
+Number.prototype.fixed = function(n) {
+  n = n || 3;
+  return parseFloat(this.toFixed(n));
+};
+
+    //copies a 2d vector like object from one to another
+pos = function(a) {
+  return {x:a.x,y:a.y};
+};
+
+    //Add a 2d vector with another one and return the resulting vector
+v_add = function(a,b) {
+  return { x:(a.x+b.x).fixed(), y:(a.y+b.y).fixed() };
+};
+
+    //Subtract a 2d vector with another one and return the resulting vector
+v_sub = function(a,b) {
+  return { x:(a.x-b.x).fixed(),y:(a.y-b.y).fixed() };
+};
+
+    //Multiply a 2d vector with a scalar value and return the resulting vector
+v_mul_scalar = function(a,b) {
+  return {x: (a.x*b).fixed() , y:(a.y*b).fixed() };
+};
+
+    //Simple linear interpolation
+lerp = function(p, n, t) {
+  var _t = Number(t);
+  _t = (Math.max(0, Math.min(1, _t))).fixed();
+  return (p + _t * (n - p)).fixed();
+};
+
+    //Simple linear interpolation between 2 vectors
+v_lerp = function(v, tv, t) {
+  return { x: lerp(v.x, tv.x, t), y: lerp(v.y, tv.y, t) };
+};
+
+/*
+  Graphics Generation
+*/
+
+function player_image_gen(type, width, height) {
   if (type == 'square') {
     sprites_ctx.beginPath();
     sprites_ctx.fillStyle = "Gray";
-    sprites_ctx.rect(0, 0, 27, 27);
+    sprites_ctx.rect(0, 0, width, height);
     sprites_ctx.fill();
-
-    sprites_ctx.beginPath();
-    sprites_ctx.fillStyle = "Orange"
-    sprites_ctx.rect(12, 3, 3, 21);
-    sprites_ctx.fill();
-
-    sprites_ctx.beginPath();
-    sprites_ctx.fillStyle = "Orange"
-    sprites_ctx.rect(3, 12, 6, 3);
-    sprites_ctx.fill();
-
-    sprites_ctx.translate(15,0);
-    sprites_ctx.beginPath();
-    sprites_ctx.fillStyle = "Orange"
-    sprites_ctx.rect(3, 12, 6, 3);
-    sprites_ctx.fill();
-    sprites_ctx.translate(-15,0);
-
-    return sprites_ctx.getImageData(0, 0, 27, 27);
+    return sprites_ctx.getImageData(0, 0, width, height);
   }
-}
-
-function board_image_gen(width, height, ctx) {
-  ctx.beginPath();
-  ctx.fillStyle = "White";
-  ctx.rect( 0, 0, width, height);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.fillStyle = "Black";
-  ctx.rect( 0, 0, width, 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.fillStyle = "Black";
-  ctx.rect( 0, height - 2, width, 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.fillStyle = "Black";
-  ctx.rect( 0, 0, 2, height);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.fillStyle = "Black";
-  ctx.rect( width - 2, 0, 2, height);
-  ctx.fill();
-
-  return ctx.getImageData(0, 0, width, height);
 }
 
 function bot_image_gen() {
@@ -231,13 +345,5 @@ function bot_image_gen() {
   return sprites_ctx.getImageData(0, 0, 2*r, 2*r);
 }
 
-function make_bot(data) {
-  var x = Math.floor(Math.random() * 299)
-  var y = Math.floor(Math.random() * 299)
-  var S = Math.sqrt(( x * x ) + ( y * y ))
-  data.pos = { x: x, y: y };
-  data.direction = { x: (data.speed/S) * x, y: (data.speed/S) * y };
 
-  bot = new Npc(data)
-  return bot;
-}
+//End
