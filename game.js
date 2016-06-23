@@ -201,6 +201,7 @@ Entity.prototype.is_bounding_box_intersecting = function() {
   var P3 = new Vector(0,0);
   var P4 = new Vector(0,0);
   var L1, L2;
+  var min_x, min_y, max_x, max_y;
 
   //The lines we want to check are based off which direction the velocity is. This determines the terminal points of the lines
   //we are interested.
@@ -247,17 +248,52 @@ Entity.prototype.is_bounding_box_intersecting = function() {
   L1 = P1.line_between(P2);
   L2 = P3.line_between(P4);
 
+  if ( this.velocity.x < 0 ) {
+    min_x = this.position.x + this.velocity.x;
+    max_x = this.position.x + this.width;
+  }
+  if ( this.velocity.x > 0 ) {
+    min_x = this.position.x;
+    max_x = this.position.x + this.velocity.x + this.width;
+  }
+  if ( this.velocity.y < 0 ) {
+    min_y = this.position.y + this.velocity.y;
+    max_y = this.position.y + this.height;
+  }
+  if ( this.velocity.y > 0 ) {
+    min_y = this.position.y;
+    max_y = this.position.y + this.velocity.y + this.height;
+  }
+  if ( this.velocity.x == 0 ) {
+    min_x = this.position.x;
+    max_x = this.position.x + this.width;
+  }
+  if ( this.velocity.y == 0 ) {
+    min_y = this.position.y;
+    max_y = this.position.y + this.height;
+  }
+
   for ( i = 0; i < this.quad_node.length; i++ ) {
     if ( this == quad_node[i] ) continue;
     for ( j = 0; j < 4; j++ ) {
       x = quad_node[i].bounding_box.corners[j].x;
       y = quad_node[i].bounding_box.corners[j].y;
-      if ( x >= min_x && x <= max_x && y >= min_y && y <= max_y ) {
-        if ( L1.y(x) <= y && L2.y(x) >= y ) {
-        }
+      if ( this.is_inside(x, y, L1, L2, min_x, max_x, min_y, max_y) ) {
+        //Bounding boxes are intersecting and further check is required
       }
     }
   }
+}
+
+Entity.prototype.is_inside = function(x, y, L1, L2, min_x, max_x, min_y, max_y) {
+  return (
+    ( x >= min_x && x <= max_x &&
+    y >= min_y && y <= max_y ) &&
+    (( L1.y(x) <= y && L2.y(x) >= y ) ||
+    ( L1.y(x) >= y && L2.y(x) <= y )) &&
+    (( L1.x(y) >= x && L2.x(y) <= x ) ||
+    ( L1.x(y) <= x && L2.x(y) >= x ))
+  );
 }
 
 /*
