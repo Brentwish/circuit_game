@@ -18,6 +18,7 @@ var board_data =  {
   ctx: background_ctx,
   width: BOARD_WIDTH,
   height: BOARD_HEIGHT,
+  entities: entities,
   boards:  {}
 };
 var map_data = {
@@ -26,6 +27,7 @@ var map_data = {
   ctx: map_ctx,
   width: BOARD_WIDTH,
   height: BOARD_HEIGHT,
+  entities: entities,
   boards:  {}
 };
 var board = new Board( board_data );
@@ -40,7 +42,6 @@ var player_data = {
   //Spatial Properties
   width: PLAYER_WIDTH,
   height: PLAYER_HEIGHT,
-  bounding_box: get_bounding_box( { image: player_image_gen('square', PLAYER_WIDTH, PLAYER_HEIGHT) } ),
   quad_node: entities,
   //Movement Properties
   speed: 2,
@@ -64,6 +65,7 @@ var main_player = new Entity( player_data );
 //  entities.push(make_bot(npc_data));
 //}
 entities.push(main_player);
+make_walls();
 
 setInterval(game, 16);
 window.addEventListener('keydown', on_key_down, true);
@@ -112,6 +114,59 @@ function make_bot(data) {
   return bot;
 }
 
+function make_walls() {
+  var image, x, y, width, height;
+  var wall_data = {
+    //General Properties
+    type: 'wall',
+    image: null,
+    board: board,
+    //Spatial Properties
+    width: null,
+    height: null,
+    quad_node: entities,
+    //Movement Properties
+    speed: null,
+    position: new Vector(0,0),
+    direction: null,
+    velocity: null,
+    acceleration: null
+  }
+  wall_data.width = sprites.width;
+  wall_data.height = 2
+  wall_data.position = new Vector(0, 0);
+  wall_data.image = make_rect(sprites, 0, 0, wall_data.width, 2);
+  entities.push(new Entity(wall_data));
+
+  wall_data.width = sprites.width;
+  wall_data.height = 2
+  wall_data.position = new Vector(0, sprites.height - 2);
+  wall_data.image = make_rect(sprites, 0, sprites.height - 2, wall_data.width, 2);
+  entities.push(new Entity(wall_data));
+
+  wall_data.width = 2;
+  wall_data.height = sprites.height
+  wall_data.position = new Vector(0, 0);
+  wall_data.image = make_rect(sprites, 0, 0, 2, sprites.height);
+  entities.push(new Entity(wall_data));
+
+  wall_data.width = 2;
+  wall_data.height = sprites.height
+  wall_data.position = new Vector(sprites.width - 2, 0);
+  wall_data.image = make_rect(sprites, sprites.width - 2, 0, 2, sprites.height);
+  entities.push(new Entity(wall_data));
+}
+
+function make_rect(c, x, y, width, height) {
+  ctx = c.getContext("2d");
+  ctx.clearRect(0,0,ctx.width,ctx.height);
+  ctx.beginPath();
+  ctx.fillStyle = "Black";
+  ctx.rect( x, y, width, height);
+  ctx.fill();
+  return ctx.getImageData(x,y,width,height);
+}
+
 function Vector(x, y) {
   this.x = x
   this.y = y
@@ -120,20 +175,30 @@ function Vector(x, y) {
 Vector.prototype.normalize = function(scalar) {
   if ( scalar === undefined ) scalar = 1;
   var S = Math.sqrt(( this.x * this.x ) + ( this.y * this.y ));
-  return new Vector( {
-    x: this.x === 0 ? 0 : ( scalar/S * this.x ).fixed(3),
-    y: this.y === 0 ? 0 : ( scalar/S * this.y ).fixed(3)
-  } );
+  return new Vector(
+    this.x === 0 ? 0 : ( scalar/S * this.x ).fixed(3),
+    this.y === 0 ? 0 : ( scalar/S * this.y ).fixed(3)
+  );
 }
 
 Vector.prototype.line_between = function(p1) {
+  x_range = get_range(p1.x, this.x);
+  y_range = get_range(p1.y, this.y);
   return {
     y: function(x) {
       return ( p1.y + ( this.y - p1.y ) * ( x - p1.x ) / ( this.x - p1.x ) );
     }.bind(this),
     x: function(y) {
       return ( p1.x + ( this.x - p1.x ) * ( y - p1.y ) / ( this.y - p1.y ) );
-    }.bind(this)
+    }.bind(this),
+    x_slope: (this.x - p1.x) / (this.y - p1.y),
+    y_slope: (this.y - p1.y) / (this.x - p1.x),
+    x_range: x_range,
+    y_range: y_range,
+    min_x : x_range[0],
+    min_y : y_range[0],
+    max_x : x_range[1],
+    max_y : y_range[1]
   }
 }
 
@@ -150,7 +215,6 @@ function Entity(data) {
   //Spatial Properties
   this.width = data.width;
   this.height = data.height;
-  this.bounding_box = data.bounding_box;
   this.quad_node = data.quad_node;
 
   //Movement Properties
@@ -159,6 +223,33 @@ function Entity(data) {
   this.speed = data.speed;
   this.velocity = data.velocity;
   this.acceleration = data.acceleration;
+
+  //Get Bounding Box
+  this.bounding_box = (function(alphaThreshold) {
+    if ( alphaThreshold === undefined ) alphaThreshold = 15;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    var data = this.image.data;
+    for ( var x = 0; x < this.image.width; ++x ) {
+      for (var y = 0; y < this.image.height; ++y ) {
+        var a = data[ ( this.image.width * y + x ) * 4 + 3 ];
+        if ( a > alphaThreshold ) {
+          if ( x > maxX ) maxX = x;
+          if ( x < minX ) minX = x;
+          if ( y > maxY ) maxY = y;
+          if ( y < minY ) minY = y;
+        }
+      }
+    }
+    return {
+      corners: [new Vector(minX,minY), new Vector(maxX,minY), new Vector(maxX,maxY), new Vector(minX,maxY)],
+      width: maxX - minX,
+      height: maxY - minY,
+      min_x: minX + this.position.x,
+      max_x: maxX + this.position.x,
+      min_y: minY + this.position.y,
+      max_y: maxY + this.position.y
+    };
+  }).bind(this)();
 }
 
 Entity.prototype.move = function() {
@@ -176,124 +267,67 @@ Entity.prototype.move = function() {
     //down
     if (keys[40]) this.direction.y += 1;
   }
+  if (this.direction.x == 0 && this.direction.y == 0) return;
   this.velocity = this.direction.normalize(this.speed);
-  this.bounding_box.width += this.velocity.x;
-  this.bounding_box.height += this.velocity.y;
-  var flag = true;
-  for ( i = 0; i < this.quad_node.length; i++ ) {
-    if ( this == this.quad_node[i] ) continue;
-    if ( is_intersecting(this.bounding_box, this.quad_node[i].bounding_box) ) {
-      //Further check is required
-      var flag = false;
-    }
-  }
+  this.get_furthest_movement();
 
-  if (flag) {
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
-  }
-
+  this.position.x += this.velocity.x;
+  this.position.y += this.velocity.y;
+  this.bounding_box.min_x = this.position.x;
+  this.bounding_box.min_y = this.position.y;
+  this.bounding_box.max_x = this.position.x + this.width;
+  this.bounding_box.max_y = this.position.y + this.height;
 }
 
-Entity.prototype.is_bounding_box_intersecting = function() {
-  var P1 = new Vector(0,0);
-  var P2 = new Vector(0,0);
-  var P3 = new Vector(0,0);
-  var P4 = new Vector(0,0);
-  var L1, L2;
-  var min_x, min_y, max_x, max_y;
+Entity.prototype.get_furthest_movement = function() {
+  for ( var i = 0; i < this.quad_node.length; i++ ) {
+    var entity = this.quad_node[i];
+    if (this == entity) continue;
 
-  //The lines we want to check are based off which direction the velocity is. This determines the terminal points of the lines
-  //we are interested.
-  if ( (this.velocity.x > 0 && this.velocity.y > 0) || (this.velocity.x < 0 && this.velocity.y < 0) ) {
-    P1.x = this.position.x + this.width;
-    P1.y = this.position.y;
-    P3.x = this.position.x;
-    P3.y = this.position.y + this.height;
-  }
-  if ( (this.velocity.x > 0 && this.velocity.y < 0) || (this.velocity.x < 0 && this.velocity.y > 0) ) {
-    P1 = this.position;
-    P3.x = this.position.x + this.width;
-    P3.y = this.position.y + this.height;
-  }
-  if (this.velocity.x == 0 && this.velocity.y > 0) {
-    P1.x = this.position.x;
-    P1.y = this.position.y + this.height;
-    P3.x = this.position.x + this.width;
-    P3.y = this.position.y + this.height;
-  }
-  if (this.velocity.x == 0 && this.velocity.y < 0) {
-    P1.x = this.position.x;
-    P1.y = this.position.y;
-    P3.x = this.position.x + this.width;
-    P3.y = this.position.y;
-  }
-  if (this.velocity.x > 0 && this.velocity.y == 0) {
-    P1.x = this.position.x + this.width;
-    P1.y = this.position.y;
-    P3.x = this.position.x + this.width;
-    P3.y = this.position.y + this.height;
-  }
-  if (this.velocity.x < 0 && this.velocity.y == 0) {
-    P1.x = this.position.x;
-    P1.y = this.position.y;
-    P3.x = this.position.x;
-    P3.y = this.position.y + this.height;
-  }
-  P2.x = P1.x + this.velocity.x;
-  P2.y = P1.y + this.velocity.y;
-  P4.x = P3.x + this.velocity.x;
-  P4.y = P3.y + this.velocity.y;
+    if ( this.velocity.x > 0 ) {
+      if ( entity.bounding_box.min_x >= this.bounding_box.max_x ) {
+        if ( entity.bounding_box.min_x <= this.bounding_box.max_x + this.velocity.x ) {
+          y_range = get_range(entity.position.y, entity.position.y + entity.height);
+          if (( this.position.y >= y_range[0] && this.position.y <= y_range[1] ) ||
+             ( this.position.y + this.height >= y_range[0] && this.position.y + this.height <= y_range[1] )) {
+            this.velocity.x = entity.bounding_box.min_x - this.bounding_box.max_x;
+          }
+        }
+      }
+    } else if ( this.velocity.x < 0 ) {
+      if ( entity.bounding_box.max_x <= this.bounding_box.min_x ) {
+        if ( entity.bounding_box.max_x >= this.bounding_box.min_x + this.velocity.x ) {
+          y_range = get_range(entity.position.y, entity.position.y + entity.height);
+          if (( this.position.y >= y_range[0] && this.position.y <= y_range[1] ) ||
+             ( this.position.y + this.height >= y_range[0] && this.position.y + this.height <= y_range[1] )) {
+            this.velocity.x = entity.bounding_box.max_x - this.bounding_box.min_x;
+          }
+        }
+      }
+    }
 
-  L1 = P1.line_between(P2);
-  L2 = P3.line_between(P4);
-
-  if ( this.velocity.x < 0 ) {
-    min_x = this.position.x + this.velocity.x;
-    max_x = this.position.x + this.width;
-  }
-  if ( this.velocity.x > 0 ) {
-    min_x = this.position.x;
-    max_x = this.position.x + this.velocity.x + this.width;
-  }
-  if ( this.velocity.y < 0 ) {
-    min_y = this.position.y + this.velocity.y;
-    max_y = this.position.y + this.height;
-  }
-  if ( this.velocity.y > 0 ) {
-    min_y = this.position.y;
-    max_y = this.position.y + this.velocity.y + this.height;
-  }
-  if ( this.velocity.x == 0 ) {
-    min_x = this.position.x;
-    max_x = this.position.x + this.width;
-  }
-  if ( this.velocity.y == 0 ) {
-    min_y = this.position.y;
-    max_y = this.position.y + this.height;
-  }
-
-  for ( i = 0; i < this.quad_node.length; i++ ) {
-    if ( this == quad_node[i] ) continue;
-    for ( j = 0; j < 4; j++ ) {
-      x = quad_node[i].bounding_box.corners[j].x;
-      y = quad_node[i].bounding_box.corners[j].y;
-      if ( this.is_inside(x, y, L1, L2, min_x, max_x, min_y, max_y) ) {
-        //Bounding boxes are intersecting and further check is required
+    if ( this.velocity.y > 0 ) {
+      if ( entity.bounding_box.min_y >= this.bounding_box.max_y ) {
+        if ( entity.bounding_box.min_y <= this.bounding_box.max_y + this.velocity.y ) {
+          x_range = get_range(entity.position.x, entity.position.x + entity.width);
+          if (( this.position.x >= x_range[0] && this.position.x <= x_range[1] ) ||
+             ( this.position.x + this.width >= x_range[0] && this.position.x + this.width <= x_range[1] )) {
+            this.velocity.y = entity.bounding_box.min_y - this.bounding_box.max_y;
+          }
+        }
+      }
+    } else if ( this.velocity.y < 0 ) {
+      if ( entity.bounding_box.max_y <= this.bounding_box.min_y ) {
+        if ( entity.bounding_box.max_y >= this.bounding_box.min_y + this.velocity.y ) {
+          x_range = get_range(entity.position.x, entity.position.x + entity.width);
+          if (( this.position.x >= x_range[0] && this.position.x <= x_range[1] ) ||
+             ( this.position.x + this.width >= x_range[0] && this.position.x + this.width <= x_range[1] )) {
+            this.velocity.y = entity.bounding_box.max_y - this.bounding_box.min_y;
+          }
+        }
       }
     }
   }
-}
-
-Entity.prototype.is_inside = function(x, y, L1, L2, min_x, max_x, min_y, max_y) {
-  return (
-    ( x >= min_x && x <= max_x &&
-    y >= min_y && y <= max_y ) &&
-    (( L1.y(x) <= y && L2.y(x) >= y ) ||
-    ( L1.y(x) >= y && L2.y(x) <= y )) &&
-    (( L1.x(y) >= x && L2.x(y) <= x ) ||
-    ( L1.x(y) <= x && L2.x(y) >= x ))
-  );
 }
 
 /*
@@ -401,39 +435,39 @@ function Board(data) {
   this.height = data.height
   this.boards = data.boards
 
+  //this.ctx.clearRect(0, 0, this.width, this.height); //Class constructer => the board is already clear.
   if (this.type == 'background') {
-    this.ctx.clearRect(0, 0, this.width, this.height);
     this.ctx.beginPath();
     this.ctx.fillStyle = "White";
     this.ctx.rect( 0, 0, this.width, this.height);
     this.ctx.fill();
 
+  } else if (this.type == 'map') {
+
+    //Top Wall
     this.ctx.beginPath();
     this.ctx.fillStyle = "Black";
     this.ctx.rect( 0, 0, this.width, 2);
     this.ctx.fill();
 
+    //Bottom Wall
     this.ctx.beginPath();
     this.ctx.fillStyle = "Black";
     this.ctx.rect( 0, this.height - 2, this.width, 2);
     this.ctx.fill();
 
+    //Left Wall
     this.ctx.beginPath();
     this.ctx.fillStyle = "Black";
     this.ctx.rect( 0, 0, 2, this.height);
     this.ctx.fill();
 
+    //Right Wall
     this.ctx.beginPath();
     this.ctx.fillStyle = "Black";
     this.ctx.rect( this.width - 2, 0, 2, this.height);
     this.ctx.fill();
-  } //else if (this.type == 'map') {
-    //this.ctx.clearRect(0, 0, this.width, this.height);
-    //this.ctx.beginPath();
-    //this.ctx.fillStyle = "rgba(245,0,0,.01)";
-    //this.ctx.rect( 0, 0, this.width, this.height);
-    //this.ctx.fill();
-  //}
+  }
 
   this.image = this.ctx.getImageData(0, 0, this.width, this.height);
 
@@ -527,99 +561,41 @@ function bot_image_gen() {
   return sprites_ctx.getImageData(0, 0, 2*r, 2*r);
 }
 
-function get_bounding_box(entity, alphaThreshold){
-  if ( alphaThreshold === undefined ) alphaThreshold = 15;
-  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  var data = entity.image.data;
-  for ( var x = 0; x < entity.image.width; ++x ) {
-    for (var y = 0; y < entity.image.height; ++y ) {
-      var a = data[ ( entity.image.width * y + x ) * 4 + 3 ];
-      if ( a > alphaThreshold ) {
-        if ( x > maxX ) maxX = x;
-        if ( x < minX ) minX = x;
-        if ( y > maxY ) maxY = y;
-        if ( y < minY ) minY = y;
-      }
+function lineIntersect(x1,y1,x2,y2, x3,y3,x4,y4) {
+    var x=((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4));
+    var y=((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4));
+    if (isNaN(x)||isNaN(y)) {
+        return false;
+    } else {
+        if (x1>=x2) {
+            if (!(x2<=x&&x<=x1)) {return false;}
+        } else {
+            if (!(x1<=x&&x<=x2)) {return false;}
+        }
+        if (y1>=y2) {
+            if (!(y2<=y&&y<=y1)) {return false;}
+        } else {
+            if (!(y1<=y&&y<=y2)) {return false;}
+        }
+        if (x3>=x4) {
+            if (!(x4<=x&&x<=x3)) {return false;}
+        } else {
+            if (!(x3<=x&&x<=x4)) {return false;}
+        }
+        if (y3>=y4) {
+            if (!(y4<=y&&y<=y3)) {return false;}
+        } else {
+            if (!(y3<=y&&y<=y4)) {return false;}
+        }
     }
-  }
-  return {
-    width: maxX - minX,
-    height: maxY - minY
-  };
+    return true;
 }
 
-function is_intersecting(r1, r2) {
-  return !( r2.left > r1.right ||
-    r2.right < r1.left ||
-    r2.upper > r1.bottom ||
-    r2.bottom < r1.upper );
+function get_range(a, b) {
+  return a == b ? [a, a] : (a < b ? [a, b] : [b, a]);
+}
+
+function contains(val, range) {
+  return val >= range[0] && val <= range[1];
 }
 //End
-
-///*
-//  NPC Class
-//*/
-//
-//function Npc(data) {
-//  this.type = data.type;
-//  this.image = data.image;
-//  this.pos = data.pos;
-//  this.direction = data.direction;
-//  this.speed = data.speed;
-//  this.ai_type = data.ai_type;
-//  this.bounding_box = data.bounding_box;
-//}
-//
-//Npc.prototype.move = function() {
-//  var is_in_bounds = true;
-//  for (i = 0; i < entities.length; i++) {
-//    if (this == entities[i]) continue
-//    if (is_intersecting(this.center_bb(), entities[i].center_bb())) {
-//      is_in_bounds = false;
-//    }
-//  }
-//  if (is_in_bounds) {
-//    this.pos.x += this.speed * this.direction.x;
-//    this.pos.y += this.speed * this.direction.y;
-//  }
-//  if (( this.pos.x <= 1 ) || ( this.pos.x >= sprites.width - 1 )) {
-//    this.direction.x *= -1;
-//  }
-//  if (( this.pos.y <= 1 ) || ( this.pos.y >= sprites.height - 1 )) {
-//    this.direction.y *= -1;
-//  }
-//}
-//
-//Npc.prototype.center_bb = function() {
-//  return {
-//    left: this.bounding_box.left + this.pos.x,
-//    right: this.bounding_box.right + this.pos.x,
-//    upper: this.bounding_box.upper + this.pos.y,
-//    lower: this.bounding_box.lower + this.pos.y
-//  }
-//}
-//
-///*
-//  End NPC Class
-//*/
-//  var flag = true;
-//  while ( flag ) {
-//    this.speed /= 2;
-//    if ( this.speed < 1 ) {
-//      this.speed = 1;
-//      flag = false;
-//    }
-//
-//    this.velocity = this.velocity.normalize(this.speed);
-//    for ( i = 0; i <= this.quad_node.length; i++ ) {
-//      backward = false;
-//      if ( this == this.quad_node[i] ) continue;
-//      if ( is_intersecting(this.bounding_box, this.quad_node[i].bounding_box) ) {
-//        backward = true;
-//        break;
-//      }
-//    }
-//    this.bounding_box.translate(this.velocity, backward);
-//  }
-//  this.position.x = this.bounding_box.left;
-//  this.position.y = this.bounding_box.upper;
